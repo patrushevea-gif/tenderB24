@@ -232,21 +232,13 @@
         }
       });
 
-      // Диаграмма причин отказов с явным отображением процентов в легенде и подсказке.
-      const lossLabels = dashboardData.block3_loss_reasons.labels;
-      const lossData = dashboardData.block3_loss_reasons.data;
-      const lossTotal = lossData.reduce((sum, value) => sum + value, 0);
-      const lossLabelsWithPercent = lossLabels.map((label, index) => {
-        const percent = ((lossData[index] / lossTotal) * 100).toFixed(1);
-        return `${label} — ${percent}%`;
-      });
-
+      // Диаграмма причин отказов.
       new Chart(document.getElementById("lossChart"), {
         type: "doughnut",
         data: {
-          labels: lossLabelsWithPercent,
+          labels: dashboardData.block3_loss_reasons.labels,
           datasets: [{
-            data: lossData,
+            data: dashboardData.block3_loss_reasons.data,
             backgroundColor: ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#94a3b8"]
           }]
         },
@@ -254,17 +246,7 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { position: "bottom" },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  const value = Number(context.parsed);
-                  const percent = ((value / lossTotal) * 100).toFixed(1);
-                  const baseLabel = lossLabels[context.dataIndex];
-                  return `${baseLabel}: ${percent}% (${value})`;
-                }
-              }
-            }
+            legend: { position: "bottom" }
           }
         }
       });
