@@ -232,17 +232,13 @@
         }
       });
 
-      // Диаграмма причин отказов с понятным отображением долей в процентах.
-      const lossLabels = dashboardData.block3_loss_reasons.labels;
-      const lossData = dashboardData.block3_loss_reasons.data;
-      const lossTotal = lossData.reduce((sum, value) => sum + value, 0);
-
+      // Диаграмма причин отказов.
       new Chart(document.getElementById("lossChart"), {
         type: "doughnut",
         data: {
-          labels: lossLabels,
+          labels: dashboardData.block3_loss_reasons.labels,
           datasets: [{
-            data: lossData,
+            data: dashboardData.block3_loss_reasons.data,
             backgroundColor: ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#94a3b8"]
           }]
         },
@@ -250,35 +246,7 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: {
-              position: "bottom",
-              labels: {
-                generateLabels(chart) {
-                  const dataset = chart.data.datasets[0].data;
-                  return chart.data.labels.map((label, index) => {
-                    const value = Number(dataset[index]);
-                    const percent = ((value / lossTotal) * 100).toFixed(1);
-                    return {
-                      text: `${label} — ${percent}%`,
-                      fillStyle: chart.data.datasets[0].backgroundColor[index],
-                      strokeStyle: chart.data.datasets[0].backgroundColor[index],
-                      lineWidth: 0,
-                      hidden: !chart.getDataVisibility(index),
-                      index
-                    };
-                  });
-                }
-              }
-            },
-            tooltip: {
-              callbacks: {
-                label(context) {
-                  const value = context.parsed;
-                  const percent = ((value / lossTotal) * 100).toFixed(1);
-                  return `${context.label}: ${percent}% (${value})`;
-                }
-              }
-            }
+            legend: { position: "bottom" }
           }
         }
       });
