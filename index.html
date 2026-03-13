@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Тендерная аналитика</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://kit.fontawesome.com/a2d9d5a54d.js" crossorigin="anonymous"></script>
+  </head>
+  <body class="bg-slate-100 text-slate-800 font-sans">
+    <div class="min-h-screen">
+      <header class="bg-white shadow-sm border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Тендерная аналитика</h1>
+            <p class="text-sm text-slate-500">Интерактивный прототип дашборда</p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <select class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option>Период: 30 дней</option>
+            </select>
+            <select class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option>Ответственный: Все</option>
+            </select>
+            <select class="bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option>Тип закупки: Все</option>
+            </select>
+          </div>
+        </div>
+      </header>
+
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <section id="kpi-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4"></section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <article class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h2 class="text-lg font-semibold mb-4">Конверсионная воронка</h2>
+            <div class="h-[360px]"><canvas id="funnelChart"></canvas></div>
+          </article>
+          <article class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h2 class="text-lg font-semibold mb-4">Причины отказов</h2>
+            <div class="h-[360px]"><canvas id="lossChart"></canvas></div>
+          </article>
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <article class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <h2 class="text-lg font-semibold mb-1">Скорость прохождения этапов</h2>
+            <p class="text-sm text-slate-500 mb-4">Пунктирная линия обозначает норму по этапам</p>
+            <div class="h-[360px]"><canvas id="speedChart"></canvas></div>
+          </article>
+          <article class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 overflow-x-auto">
+            <h2 class="text-lg font-semibold mb-4">Алерты (Сделки под угрозой)</h2>
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left text-slate-500 border-b border-slate-200">
+                  <th class="py-2 pr-3">Сделка</th>
+                  <th class="py-2 pr-3">Менеджер</th>
+                  <th class="py-2 pr-3">Стадия</th>
+                  <th class="py-2">Проблема</th>
+                </tr>
+              </thead>
+              <tbody id="alertsBody"></tbody>
+            </table>
+          </article>
+        </section>
+
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 overflow-x-auto">
+          <h2 class="text-lg font-semibold mb-4">Pipeline Health (Опережающие показатели)</h2>
+          <table class="min-w-full text-sm border-collapse" id="pipelineTable"></table>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const dashboardData = {
+        period: "30 дней",
+        block1_kpi: {
+          win_rate: { value: "28%", trend: "up", diff: "+3%" },
+          contract_sum: { value: "184 500 000 ₽", trend: "up", diff: "+12.4 млн ₽" },
+          active_deals: { value: 34, trend: "up", diff: "+5" },
+          avg_cycle_days: { value: 22, trend: "down", diff: "-2 дня" },
+          missed_deadline: { value: 3, trend: "down", diff: "-1" }
+        },
+        block2_funnel: {
+          labels: [
+            "Вход (Распределение)",
+            "Оценка юриста",
+            "Оценка технолога",
+            "Себестоимость",
+            "Подготовка заявки",
+            "Подача",
+            "Протокол (допущены)",
+            "Контракт заключён"
+          ],
+          data: [150, 135, 115, 85, 80, 75, 60, 42]
+        },
+        block3_loss_reasons: {
+          labels: [
+            "Проиграли по цене",
+            "Не успели",
+            "Отклонили",
+            "Не рентабельно",
+            "Проиграли по баллам",
+            "Отмена закупки"
+          ],
+          data: [30, 15, 12, 10, 5, 2]
+        },
+        block4_stage_speed: {
+          labels: [
+            "Оценка юриста",
+            "Оценка технолога",
+            "Себестоимость",
+            "Согласование контракта",
+            "Итоговое согласование"
+          ],
+          actual_days: [1.5, 2.8, 4.1, 1.2, 0.8],
+          norm_days: [2, 2, 3, 2, 1]
+        },
+        block5_alerts: [
+          {
+            deal_name: "Поставка Оксихлорид алюминия 20%",
+            manager: "Геннадий Жорник",
+            stage: "Подготовка заявки",
+            priority: "critical",
+            reason: "Дедлайн подачи ≤ 2 дней"
+          },
+          {
+            deal_name: "Жидкость смазочно-охлаждающая SINTOGRIND",
+            manager: "Владимир Сычевский",
+            stage: "Оценка технолога",
+            priority: "warning",
+            reason: "Задача просрочена (технолог)"
+          },
+          {
+            deal_name: "Поставка лакокрасочных материалов",
+            manager: "Артём Мирошников",
+            stage: "Себестоимость",
+            priority: "info",
+            reason: "Себестоимость ≈ НМЦ (маржа 2%)"
+          },
+          {
+            deal_name: "Поставка порошковой краски",
+            manager: "Егор Патрушев",
+            stage: "Контракт заключён",
+            priority: "warning",
+            reason: "Исполнение не запущено > 2 дней"
+          }
+        ],
+        block6_pipeline_health: {
+          stages: [
+            "Распределение",
+            "Оценка юриста",
+            "Оценка технолога",
+            "Себестоимость",
+            "Подготовка заявки",
+            "Подача заявки"
+          ],
+          managers: ["Сычевский В.", "Патрушев Е.", "Жорник Г.", "Мирошников А.", "Лушин И."],
+          data_matrix: [
+            [3, 1, 2, 0, 1],
+            [1, 2, 1, 1, 0],
+            [2, 3, 0, 1, 1],
+            [1, 0, 2, 1, 0],
+            [0, 1, 1, 0, 0],
+            [1, 0, 0, 1, 1]
+          ],
+          norms: [5, 3, 3, 3, 2, 2]
+        }
+      };
+
+      const kpiMeta = [
+        { key: "win_rate", title: "Win Rate", icon: "fa-trophy" },
+        { key: "contract_sum", title: "Сумма контрактов", icon: "fa-wallet" },
+        { key: "active_deals", title: "Активные сделки", icon: "fa-briefcase" },
+        { key: "avg_cycle_days", title: "Средний цикл сделки", icon: "fa-clock" },
+        { key: "missed_deadline", title: "Не успели", icon: "fa-triangle-exclamation" }
+      ];
+
+      // Отрисовка KPI-карточек.
+      const kpiGrid = document.getElementById("kpi-grid");
+      kpiMeta.forEach((item) => {
+        const kpi = dashboardData.block1_kpi[item.key];
+        const isUp = kpi.trend === "up";
+        const trendClass = isUp ? "text-emerald-600" : "text-rose-600";
+        const trendIcon = isUp ? "fa-arrow-trend-up" : "fa-arrow-trend-down";
+
+        const card = document.createElement("article");
+        card.className = "bg-white rounded-xl shadow-sm border border-slate-200 p-4";
+        card.innerHTML = `
+          <div class="flex justify-between items-start mb-3">
+            <h3 class="text-sm font-medium text-slate-600">${item.title}</h3>
+            <i class="fa-solid ${item.icon} text-slate-400"></i>
+          </div>
+          <p class="text-2xl font-bold text-slate-900 mb-2">${kpi.value}</p>
+          <p class="text-sm font-semibold ${trendClass}">
+            <i class="fa-solid ${trendIcon} mr-1"></i>${kpi.diff}
+          </p>
+        `;
+
+        if (item.key === "missed_deadline") {
+          card.querySelector("p.text-sm").innerHTML = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold"><i class="fa-solid fa-circle"></i>Критично</span> <span class="ml-1 ${trendClass}">${kpi.diff}</span>`;
+        }
+
+        kpiGrid.appendChild(card);
+      });
+
+      // Воронка: горизонтальные столбцы с убывающими значениями по этапам.
+      new Chart(document.getElementById("funnelChart"), {
+        type: "bar",
+        data: {
+          labels: dashboardData.block2_funnel.labels,
+          datasets: [{
+            label: "Количество сделок",
+            data: dashboardData.block2_funnel.data,
+            backgroundColor: [
+              "#1d4ed8", "#2563eb", "#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe", "#eff6ff"
+            ],
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { grid: { color: "#e2e8f0" } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+
+      // Диаграмма причин отказов.
+      new Chart(document.getElementById("lossChart"), {
+        type: "doughnut",
+        data: {
+          labels: dashboardData.block3_loss_reasons.labels,
+          datasets: [{
+            data: dashboardData.block3_loss_reasons.data,
+            backgroundColor: ["#2563eb", "#f59e0b", "#ef4444", "#10b981", "#8b5cf6", "#94a3b8"]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom" }
+          }
+        }
+      });
+
+      // График скорости этапов + пунктирная норма отдельным датасетом.
+      new Chart(document.getElementById("speedChart"), {
+        type: "bar",
+        data: {
+          labels: dashboardData.block4_stage_speed.labels,
+          datasets: [
+            {
+              label: "Факт (дней)",
+              data: dashboardData.block4_stage_speed.actual_days,
+              backgroundColor: "#0ea5e9",
+              borderRadius: 8
+            },
+            {
+              label: "Норма (дней)",
+              data: dashboardData.block4_stage_speed.norm_days,
+              type: "line",
+              borderColor: "#ef4444",
+              borderDash: [6, 6],
+              borderWidth: 2,
+              pointRadius: 3,
+              pointBackgroundColor: "#ef4444"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: "y",
+          scales: {
+            x: {
+              beginAtZero: true,
+              title: { display: true, text: "Дни" },
+              grid: { color: "#e2e8f0" }
+            },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+
+      // Таблица алертов: генерируется циклом на основе массива block5_alerts.
+      const alertsBody = document.getElementById("alertsBody");
+      const priorityMap = {
+        critical: { label: "Критический", className: "bg-rose-100 text-rose-700" },
+        warning: { label: "Важный", className: "bg-amber-100 text-amber-700" },
+        info: { label: "Предупреждение", className: "bg-sky-100 text-sky-700" }
+      };
+
+      dashboardData.block5_alerts.forEach((alert) => {
+        const row = document.createElement("tr");
+        const priority = priorityMap[alert.priority];
+        row.className = "border-b border-slate-100 hover:bg-slate-50";
+        row.innerHTML = `
+          <td class="py-3 pr-3 font-medium text-slate-700">${alert.deal_name}</td>
+          <td class="py-3 pr-3">${alert.manager}</td>
+          <td class="py-3 pr-3">${alert.stage}</td>
+          <td class="py-3">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${priority.className}">${priority.label}</span>
+            <span class="ml-2 text-slate-600">${alert.reason}</span>
+          </td>
+        `;
+        alertsBody.appendChild(row);
+      });
+
+      // Тепловая карта Pipeline Health: полностью строится из block6_pipeline_health.
+      const pipelineTable = document.getElementById("pipelineTable");
+      const { stages, managers, data_matrix, norms } = dashboardData.block6_pipeline_health;
+
+      const headerHtml = `
+        <thead>
+          <tr class="bg-slate-50 text-slate-600 border-b border-slate-200">
+            <th class="text-left py-2 px-3">Этап воронки</th>
+            ${managers.map((m) => `<th class="py-2 px-3">${m}</th>`).join("")}
+            <th class="py-2 px-3">ИТОГО</th>
+            <th class="py-2 px-3">Норма</th>
+          </tr>
+        </thead>
+      `;
+
+      const bodyRows = stages.map((stage, idx) => {
+        const rowValues = data_matrix[idx];
+        const rowTotal = rowValues.reduce((acc, value) => acc + value, 0);
+
+        const cells = rowValues.map((value) => {
+          let heatClass = "bg-green-100";
+          if (value === 0) heatClass = "bg-red-500 text-white";
+          else if (value === 1) heatClass = "bg-amber-100";
+          else if (value >= 3) heatClass = "bg-green-200";
+
+          return `<td class="py-2 px-3 text-center ${heatClass}">${value}</td>`;
+        }).join("");
+
+        return `
+          <tr class="border-b border-slate-100">
+            <td class="py-2 px-3 font-medium">${stage}</td>
+            ${cells}
+            <td class="py-2 px-3 text-center font-semibold">${rowTotal}</td>
+            <td class="py-2 px-3 text-center">${norms[idx]}</td>
+          </tr>
+        `;
+      }).join("");
+
+      pipelineTable.innerHTML = `${headerHtml}<tbody>${bodyRows}</tbody>`;
+    </script>
+  </body>
+</html>
